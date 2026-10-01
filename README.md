@@ -384,7 +384,7 @@ See `include/mini_gms_c.h` for the full function list.
 
 ## Build
 
-See [BUILD.txt](BUILD.txt).
+See [BUILD.md](mini_gms/BUILD.md).
 
 ---
 

@@ -382,7 +382,7 @@ mgms_free(doc);
 
 ## 构建
 
-见 [BUILD.txt](BUILD.txt)
+见 [BUILD.md](mini_gms/BUILD.md)
 
 ---
 
