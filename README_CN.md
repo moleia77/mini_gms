@@ -82,7 +82,7 @@ mini_gms 是在开发 **GMS**（面向游戏引擎的 DSL）的过程中拆分�
 | 范围展开 `start~end` | 1.1 | `{ 1~5 }` |
 | 批量声明 `[stu] { ... }` | 1.1 | `[stu] { a : 1  b : 2 }` |
 | 紧凑 `stu` 行 | 1.1 | 模板行之后的 `{ 1 2 }` |
-| 路径访问（`a.b[0].c`） | 1.0 | `doc.get<number>("a.b[0].c")` |
+| 路径访问（`a.b[0].c`） | 1.0 | `doc.get<mol::mgms_num>("a.b[0].c")` |
 | C++ / C ABI / Python 绑定 | 1.0 | 见[各语言接口](#各语言接口) |
 
 ### 示例
@@ -132,12 +132,12 @@ C++：
 ```cpp
 #include "mini_gms.hpp"
 
-auto doc = mol::Document::parse(text);
+auto doc = mol::MgmsDoc::parse(text);
 
-auto title  = doc.get<mol::string>("title", "");              // "Starfall"
-auto levels = doc.getVec("levels");                           // [1,2,3,4,5]
-auto hp     = doc.get<mol::number>("enemies[0].hp", 0.0);     // 20
-auto stats  = doc.node("hero.stats");                         // 共享的 stu
+auto title  = doc.get<mol::mgms_str>("title", "");              // "Starfall"
+auto levels = doc.getVec("levels");                             // [1,2,3,4,5]
+auto hp     = doc.get<mol::mgms_num>("enemies[0].hp", 0.0);     // 20
+auto stats  = doc.node("hero.stats");                           // 共享的 stu
 ```
 
 Python：
@@ -335,7 +335,7 @@ Windows 路径、正则、任何反斜杠有意义的内容用原始形式。想
 [stu] config {
     &base { hp : 100  speed : 1.0 }
 
-    [stu] enemy {
+    enemy {
         stats : &base           # 替换为上面登记的 stu
         copy  : &base           # 同一个节点，不是拷贝
     }
@@ -454,11 +454,11 @@ Windows 路径、正则、任何反斜杠有意义的内容用原始形式。想
 C++ 读取：
 
 ```cpp
-auto doc = mol::Document::parse(text);
+auto doc = mol::MgmsDoc::parse(text);
 
-auto str  = doc.get<mol::number>("save.player.attributes.str", 0.0); // 10
-auto gold = doc.get<mol::number>("save.gold", 0.0);                  // 1200
-auto q    = doc.get<mol::number>("save.quests[0][1]", 0.0);          // 2
+auto str  = doc.get<mol::mgms_num>("save.player.attributes.str", 0.0); // 10
+auto gold = doc.get<mol::mgms_num>("save.gold", 0.0);                  // 1200
+auto q    = doc.get<mol::mgms_num>("save.quests[0][1]", 0.0);          // 2
 ```
 
 Python 读取：
@@ -469,6 +469,95 @@ print(data['save']['player']['attributes'])  # {'str': 10.0, 'dex': 8.0, 'int': 
 print(data['save']['gold'])                  # 1200.0
 print(data['save']['party'][1]['name'])      # Iris
 print(data['save']['quests'][0])             # [1.0, 2.0, 3.0]
+```
+
+类型映射：
+
+| mini_gms | Python |
+|---|---|
+| `stu` | `dict` |
+| `vec` | `list` |
+| `null` | `None` |
+| `bool` | `bool` |
+| `number` | `float` |
+| `string` | `str` |
+
+---
+
+## 各语言接口
+
+### C++
+
+```cpp
+#include "mini_gms.hpp"
+
+using namespace mol;
+
+// 解析
+auto doc = MgmsDoc::parse(text);
+
+// 按路径取标量
+auto title = doc.get<mgms_str>("title", "");
+auto hp    = doc.get<mgms_num>("enemies[0].hp", 0.0);
+
+// 数组下标
+auto first = doc.get<mgms_num>("levels[0]", 0.0);
+
+// 必需值（缺失或类型不符时抛异常）
+auto required = doc.require<mgms_num>("screen.width");
+
+// 存在性检查
+if (doc.has("title")) { ... }
+
+// 取节点，手动遍历
+auto enemies = doc.node("enemies");
+if (enemies && enemies->isVec()) {
+    for (auto& e : enemies->asVec()) { ... }
+}
+```
+
+路径语法：
+
+| 路径 | 含义 |
+|---|---|
+| `title` | 顶层 `title` |
+| `levels[0]` | `levels` 的第 0 个元素 |
+| `enemies[2].name` | 第三个敌人的 `name` |
+| `hero.stats.hp` | 共享宏节点里的 `hp` |
+
+类型别名：
+
+```cpp
+mol::mgms_null   // std::monostate
+mol::mgms_bool   // bool
+mol::mgms_num    // double
+mol::mgms_str    // std::string
+```
+
+### Python
+
+Python 包是对共享库的 `ctypes` 包装。共享库没有提交到仓库；在 `pip install .` 之前，请先按 [BUILD.md](BUILD.md) 完成构建和拷贝。
+
+```bash
+cd python
+pip install .
+```
+
+```python
+import mini_gms
+
+# 解析为普通 Python 对象
+data = mini_gms.loads(text)
+print(data['title'])              # Starfall
+print(data['levels'])             # [1.0, 2.0, 3.0, 4.0, 5.0]
+print(data['enemies'][0]['hp'])   # 20.0
+print(data['hero']['stats'])      # {'hp': 100.0, 'speed': 1.5}
+
+# 保留 Document 以便按需访问
+with mini_gms.parse(text) as doc:
+    hero = doc['hero']
+    print(hero['name'].value)     # Nova
+    print(hero.keys())            # ['stats', 'name']
 ```
 
 类型映射：
@@ -502,8 +591,6 @@ for (size_t i = 0; i < n; ++i) {
 mgms_free(doc);
 ```
 
-完整函数列表见 `include/mini_gms_c.h`。
-
 ---
 
 ## 构建
@@ -533,7 +620,7 @@ mgms_free(doc);
 mini_gms 1.1 与 1.0 完全向后兼容：
 
 - 1.0 的 `.mgms` 文件仍然合法，语义不变。
-- C++ API（`mol::Document`、`mol::parse`）、C ABI（`mgms_*`）、Python API（`parse`、`loads`、`Document`、`Value`）均不变。
+- C++ API（`mol::MgmsDoc`、`mol::mgms::parse`）、C ABI（`mgms_*`）、Python API（`parse`、`loads`、`Document`、`Value`）均不变。
 - 无需迁移。
 
 1.1 新增了语法（宏、范围、转义字符串、批量声明、紧凑行），但不改变、不删除任何 1.0 构件。完整列表见 [CHANGELOG_CN.md](CHANGELOG_CN.md)。

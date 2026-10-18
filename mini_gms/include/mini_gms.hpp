@@ -1,6 +1,6 @@
 #pragma once
 
-// mini_gms 对外头文件
+// mini_gms public header
 
 #include "mini_gms_value.hpp"
 #include "mini_gms_doc.hpp"

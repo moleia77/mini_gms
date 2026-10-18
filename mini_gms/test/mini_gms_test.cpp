@@ -1,102 +1,121 @@
-// mini_gms_test.cpp - implementation of the mini_gms AST debug printer.
-//
-// This file implements the helpers declared in mini_gms_test.hpp. It walks
-// a parsed mini_gms AST and prints it to std::cout in a syntax-like layout
-// so that a human can eyeball the structure. It is not a unit test
-// framework; it is a small manual inspection tool.
-//
-// Printing rules:
-//   - var   : printed as null / true / false / number / "string"
-//   - vec   : printed as { ... } with one element per line
-//   - stu   : printed as { key value ... } with one member per line
-//   - vec elements that are themselves vec get a leading ": " to echo the
-//     "name : { ... }" source form
-
-#include "mini_gms_test.hpp"
 #include <iostream>
-#include <variant>
+#include <string>
+#include "mini_gms.hpp"
 
-namespace mol
+namespace mol::lib::test
 {
 
-    // Recursively prints one value with the given indentation.
-    // Scalars are printed inline; vec and stu are printed as multi-line
-    // blocks. Null pointers are printed as the word "null".
-    void printValue(const ValuePtr &v, int indent)
+    static int failures = 0;
+
+    static void check(bool ok, const std::string &name)
     {
-        std::string pad(indent * 2, ' ');
-
-        if (!v)
+        if (ok)
         {
-            std::cout << "null";
-            return;
-        }
-
-        if (v->isVar())
-        {
-            const Var &var = v->asVar();
-
-            if (std::holds_alternative<std::monostate>(var))
-            {
-                std::cout << "null";
-            }
-            else if (std::holds_alternative<bool>(var))
-            {
-                std::cout << (std::get<bool>(var) ? "true" : "false");
-            }
-            else if (std::holds_alternative<double>(var))
-            {
-                double d = std::get<double>(var);
-                if (d == static_cast<long long>(d))
-                    std::cout << static_cast<long long>(d);
-                else
-                    std::cout << d;
-            }
-            else
-            { // std::string
-                std::cout << "\"" << std::get<std::string>(var) << "\"";
-            }
-        }
-        else if (v->isVec())
-        {
-            std::cout << "{\n";
-            for (auto &e : v->asVec())
-            {
-                std::cout << pad << "  ";
-                if (e->isVec())
-                    std::cout << ": ";
-                printValue(e, indent + 1);
-                std::cout << "\n";
-            }
-            std::cout << pad << "}";
+            std::cout << "[PASS] " << name << "\n";
         }
         else
-        { // Stu
-            std::cout << "{\n";
-            for (auto &kv : v->asStu())
-            {
-                std::cout << pad << "  " << kv.first;
-                if (kv.second->isVar() || kv.second->isVec())
-                    std::cout << " : ";
-                else
-                    std::cout << " ";
-                printValue(kv.second, indent + 1);
-                std::cout << "\n";
-            }
-            std::cout << pad << "}";
-        }
-    }
-
-    // Prints every top-level declaration followed by a blank line.
-    // The name is printed first, then the value via printValue.
-    void dump(const std::vector<std::pair<std::string, ValuePtr>> &decls)
-    {
-        for (auto &kv : decls)
         {
-            std::cout << kv.first << " ";
-            printValue(kv.second);
-            std::cout << "\n\n";
+            std::cout << "[FAIL] " << name << "\n";
+            failures++;
         }
     }
 
+    // Test source
+    static const char *SRC = R"(
+# 1. Basic variables and batch flattening
+[stu] {
+    a : 1
+    b : 2
+    c { d : 3 }
+    e : { 1 2 3 }
+}
+
+# 2. Macro reference &
+[var] &base_hp : 100
+[var] player_hp : &base_hp
+
+# 3. Ranges &
+[vec] frames : { 1~5 }
+[vec] reverse_frames : { 5~1 }
+
+# 4. Vec template inheritance
+[vec] enemies : {
+    { name : "Goblin"  hp : 100  alive : true }
+    { "Slime"  50  false }
+    { "Dragon"  5000  true }
+}
+
+# 5. Double and single quoted strings
+[var] raw_str : "C:\Users\test"
+[var] esc_str : 'line1\nline2'
+[var] multi_line : '
+    hello
+    world
+'
+
+# 6. null
+[var] nothing : null
+)";
+
+    int runAll()
+    {
+        failures = 0;
+
+        auto doc = MgmsDoc::parse(SRC);
+
+        // --- 1. Flattening and inference ---
+        check(doc.get<mgms_num>("a") == 1.0, "batch flat: var a");
+        check(doc.get<mgms_num>("b") == 2.0, "batch flat: var b");
+        check(doc.get<mgms_num>("c.d") == 3.0, "batch flat: nested stu");
+        check(doc.get<mgms_num>("e[0]") == 1.0, "batch flat: inferred vec");
+
+        // --- 2. Macro references ---
+        check(doc.get<mgms_num>("player_hp") == 100.0, "macro: player_hp");
+
+        // --- 3. Ranges ---
+        auto frames = doc.getVec("frames");
+        check(frames.size() == 5, "range: 1~5 size");
+        check(std::get<double>(frames[4]->asVar()) == 5.0, "range: 1~5 last");
+
+        auto rev = doc.getVec("reverse_frames");
+        check(rev.size() == 5, "range: 5~1 size");
+        check(std::get<double>(rev[0]->asVar()) == 5.0, "range: 5~1 first");
+
+        // --- 4. Vec template inheritance ---
+        auto enemies = doc.getVec("enemies");
+        check(enemies.size() == 3, "template: size");
+
+        auto e0 = enemies[0]->asStu();
+        auto e1 = enemies[1]->asStu();
+        auto e2 = enemies[2]->asStu();
+
+        check(e1[0].first == "name" && std::get<std::string>(e1[0].second->asVar()) == "Slime", "template: e1 name");
+        check(e1[1].first == "hp" && std::get<double>(e1[1].second->asVar()) == 50.0, "template: e1 hp");
+        check(e1[2].first == "alive" && std::get<bool>(e1[2].second->asVar()) == false, "template: e1 alive");
+
+        // --- 5. Strings ---
+        check(doc.get<mgms_str>("raw_str") == "C:\\Users\\test", "string: raw");
+        check(doc.get<mgms_str>("esc_str") == "line1\nline2", "string: escaped");
+        check(doc.get<mgms_str>("multi_line").find("hello") != std::string::npos, "string: multiline");
+
+        // --- 6. null ---
+        check(doc.get<mgms_str>("nothing", "default") == "default", "null: returns default");
+
+        // --- Print result ---
+        if (failures == 0)
+        {
+            std::cout << "\n[SUCCESS] All tests passed!\n";
+            return 0;
+        }
+        else
+        {
+            std::cout << "\n[ERROR] " << failures << " tests failed!\n";
+            return 1;
+        }
+    }
+}
+
+int main()
+{
+    return mol::lib::test::runAll();
 }

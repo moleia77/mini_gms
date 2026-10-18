@@ -82,7 +82,7 @@ Beyond the three data types, the reader only has to remember one rule: `&name` i
 | Range expansion `start~end` | 1.1 | `{ 1~5 }` |
 | Batch declarations `[stu] { ... }` | 1.1 | `[stu] { a : 1  b : 2 }` |
 | Compact `stu` rows | 1.1 | `{ 1 2 }` after a template row |
-| Path access (`a.b[0].c`) | 1.0 | `doc.get<number>("a.b[0].c")` |
+| Path access (`a.b[0].c`) | 1.0 | `doc.get<mol::mgms_num>("a.b[0].c")` |
 | C++ / C ABI / Python bindings | 1.0 | see [Interfaces](#interfaces) |
 
 ### Example
@@ -132,12 +132,12 @@ C++:
 ```cpp
 #include "mini_gms.hpp"
 
-auto doc = mol::Document::parse(text);
+auto doc = mol::MgmsDoc::parse(text);
 
-auto title  = doc.get<mol::string>("title", "");              // "Starfall"
-auto levels = doc.getVec("levels");                           // [1,2,3,4,5]
-auto hp     = doc.get<mol::number>("enemies[0].hp", 0.0);     // 20
-auto stats  = doc.node("hero.stats");                         // the shared stu
+auto title  = doc.get<mol::mgms_str>("title", "");              // "Starfall"
+auto levels = doc.getVec("levels");                             // [1,2,3,4,5]
+auto hp     = doc.get<mol::mgms_num>("enemies[0].hp", 0.0);     // 20
+auto stats  = doc.node("hero.stats");                           // the shared stu
 ```
 
 Python:
@@ -335,7 +335,7 @@ Inside a `stu` (tag may be omitted, as with any member):
 [stu] config {
     &base { hp : 100  speed : 1.0 }
 
-    [stu] enemy {
+    enemy {
         stats : &base           # substitutes the stu recorded above
         copy  : &base           # the same node, not a copy
     }
@@ -456,11 +456,11 @@ In this file:
 C++:
 
 ```cpp
-auto doc = mol::Document::parse(text);
+auto doc = mol::MgmsDoc::parse(text);
 
-auto str  = doc.get<mol::number>("save.player.attributes.str", 0.0); // 10
-auto gold = doc.get<mol::number>("save.gold", 0.0);                  // 1200
-auto q    = doc.get<mol::number>("save.quests[0][1]", 0.0);          // 2
+auto str  = doc.get<mol::mgms_num>("save.player.attributes.str", 0.0); // 10
+auto gold = doc.get<mol::mgms_num>("save.gold", 0.0);                  // 1200
+auto q    = doc.get<mol::mgms_num>("save.quests[0][1]", 0.0);          // 2
 ```
 
 Python:
@@ -485,17 +485,17 @@ print(data['save']['quests'][0])             # [1.0, 2.0, 3.0]
 using namespace mol;
 
 // parse
-auto doc = Document::parse(text);
+auto doc = MgmsDoc::parse(text);
 
 // scalar access by path
-auto title = doc.get<string>("title", "");
-auto hp    = doc.get<number>("enemies[0].hp", 0.0);
+auto title = doc.get<mgms_str>("title", "");
+auto hp    = doc.get<mgms_num>("enemies[0].hp", 0.0);
 
 // array index
-auto first = doc.get<number>("levels[0]", 0.0);
+auto first = doc.get<mgms_num>("levels[0]", 0.0);
 
 // required value (throws if missing or type mismatch)
-auto required = doc.require<number>("screen.width");
+auto required = doc.require<mgms_num>("screen.width");
 
 // existence check
 if (doc.has("title")) { ... }
@@ -519,10 +519,10 @@ Path syntax:
 Type aliases:
 
 ```cpp
-mol::null      // std::monostate
-mol::boolean   // bool
-mol::number    // double
-mol::string    // std::string
+mol::mgms_null   // std::monostate
+mol::mgms_bool   // bool
+mol::mgms_num    // double
+mol::mgms_str    // std::string
 ```
 
 ### Python
@@ -613,7 +613,7 @@ See [BUILD.md](BUILD.md).
 mini_gms 1.1 is fully backward compatible with 1.0:
 
 - 1.0 `.mgms` files remain valid and keep the same meaning.
-- The C++ API (`mol::Document`, `mol::parse`), the C ABI (`mgms_*`), and the Python API (`parse`, `loads`, `Document`, `Value`) are unchanged.
+- The C++ API (`mol::MgmsDoc`, `mol::mgms::parse`), the C ABI (`mgms_*`), and the Python API (`parse`, `loads`, `Document`, `Value`) are unchanged.
 - No migration is required.
 
 1.1 adds new syntax (macros, ranges, escaped strings, batch declarations, compact rows) but does not change or remove any 1.0 construct. See [CHANGELOG.md](CHANGELOG.md) for the full list.

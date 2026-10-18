@@ -124,10 +124,6 @@ namespace mol::mgms {
         while (pos_ < src_.size() && src_[pos_] != '\'') {
             char c = src_[pos_];
 
-            //if (c == '\n') {
-            //    throw std::runtime_error(errAt("string cannot span lines", ln));
-            //}
-
             if (c == '\\' && pos_ + 1 < src_.size()) {
                 char n = src_[pos_ + 1];
                 switch (n) {
@@ -220,12 +216,6 @@ namespace mol::mgms {
     }
 
     Stu Parser::parseTopLevel() {
-        //Stu out;
-
-        //while (peek().type != Tok::End) {
-        //    out.push_back(parseTopDecl());
-        //}
-        //return out;
 
         Stu out;
         while (peek().type != Tok::End) {
@@ -257,37 +247,6 @@ namespace mol::mgms {
     
 
     StuMember Parser::parseTopDecl() {
-        //if (!check(Tok::LBracket)) {
-        //    throw std::runtime_error(errAt(
-        //        "top-level declaration must start with '['", peek().line));
-        //}
-        //next();
-        //std::string tag = expect(Tok::Ident, "expected tag name").text;
-        //expect(Tok::RBracket, "expected ']'");
-        //std::string name = expect(Tok::Ident, "expected declaration name").text;
-
-        //ValuePtr v;
-        //if (tag == "stu") {
-        //    v = parseStuBody();
-        //}
-        //else if (tag == "vec") {
-        //    expect(Tok::Colon, "expected ':' after vec declaration");
-        //    v = parseVecBody();
-        //}
-        //else if (tag == "var") {
-        //    expect(Tok::Colon, "expected ':' after var declaration");
-        //    v = parseVarValue();
-        //}
-        //else {
-        //    throw std::runtime_error(errAt(
-        //        "unknown tag [" + tag + "]", peek().line));
-        //}
-
-        //if (!name.empty() && name[0] == '&') {
-        //    macros_[name] = v;
-        //}
-
-        //return { name, v };
         expect(Tok::LBracket, "expected '['");
         std::string tag = expect(Tok::Ident, "expected tag name").text;
         expect(Tok::RBracket, "expected ']'");
@@ -329,20 +288,6 @@ namespace mol::mgms {
     }
 
     ValuePtr Parser::parseStuBody() {
-        //expect(Tok::LBrace, "expected '{' for stu");
-        //Stu s;
-
-        //while (!check(Tok::RBrace)) {
-        //    if (check(Tok::End)) {
-        //        throw std::runtime_error(errAt("unterminated stu", peek().line));
-        //    }
-        //    s.push_back(parseMember());
-        //}
-        //expect(Tok::RBrace, "expected '}' for stu");
-
-        //auto v = std::make_shared<Value>();
-        //v->data = std::move(s);
-        //return v;
         expect(Tok::LBrace, "expected '{' for stu");
         Stu s;
 
@@ -407,36 +352,6 @@ namespace mol::mgms {
     }
 
     ValuePtr Parser::parseVecBody() {
-        //expect(Tok::LBrace, "expected '{' for vec");
-        //Vec vec;
-
-        //while (!check(Tok::RBrace)) {
-        //    if (check(Tok::End)) {
-        //        throw std::runtime_error(errAt("unterminated vec", peek().line));
-        //    }
-
-        //    if (check(Tok::Number) && pos_ + 1 < toks_.size()
-        //        && toks_[pos_ + 1].type == Tok::Tilde) {
-        //        double start = std::stod(next().text);
-        //        next();
-        //        double end = std::stod(next().text);
-        //        double step = (start <= end) ? 1.0 : -1.0;
-        //        for (double i = start; step > 0 ? i <= end : i >= end; i += step) {
-        //            auto v = std::make_shared<Value>();
-        //            v->data = Var(i);
-        //            vec.push_back(v);
-        //        }
-        //    }
-        //    else {
-        //        vec.push_back(parseVecElement());
-        //    }
-        //}
-        //expect(Tok::RBrace, "expected '}' for vec");
-
-        //auto v = std::make_shared<Value>();
-        //v->data = std::move(vec);
-        //return v;
-
         expect(Tok::LBrace, "expected '{' for vec");
         Vec vec;
         Stu header_template;
@@ -567,7 +482,7 @@ namespace mol::mgms {
             if (check(Tok::End)) {
                 throw std::runtime_error(errAt("unterminated compact stu", peek().line));
             }
-            values.push_back(parseVarValue()); // 只允许纯值
+            values.push_back(parseVarValue());
         }
         expect(Tok::RBrace, "expected '}'");
 

@@ -1,132 +1,137 @@
 #pragma once
 
-// mini_gms 解析器模块
-// 声明词法分析器和语法分析器
-// 属于内部模块, 外部不应直接使用
+// mini_gms parser module
+// Declares the lexer and the parser
+// Internal module; external code should not use it directly
 
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include "mini_gms_value.hpp"
 
-namespace mol::mgms {
+namespace mol::mgms
+{
 
-        // 词法单元类型
-        enum class Tok {
-            LBracket,   // [
-            RBracket,   // ]
-            LBrace,     // {
-            RBrace,     // }
-            Colon,      // :
-            Tilde,      // ~
-            Ident,      // 标识符,含 & 开头的宏名
-            StringRaw,  // 双引号原始字符串
-            StringEsc,  // 单引号转义字符串
-            Number,     // 数字
-            True,       // true
-            False,      // false
-            Null,       // null
-            End         // 结束
-        };
+    // Token types
+    enum class Tok
+    {
+        LBracket,  // [
+        RBracket,  // ]
+        LBrace,    // {
+        RBrace,    // }
+        Colon,     // :
+        Tilde,     // ~
+        Ident,     // Identifier, including macro names starting with &
+        StringRaw, // Double-quoted raw string
+        StringEsc, // Single-quoted escaped string
+        Number,    // Number
+        True,      // true
+        False,     // false
+        Null,      // null
+        End        // End of input
+    };
 
-        // 一个词法单元, 含类型 原文 行号
-        struct Token {
-            Tok type;
-            int line;
-            std::string text;
-        };
+    // A single token, with type, source text, and line number
+    struct Token
+    {
+        Tok type;
+        int line;
+        std::string text;
+    };
 
-        // 词法分析器, 把源码文本转换成词法单元列表
-        class Lexer {
-        public:
-            // 保存源码引用, 源码必须比 Lexer 活得久
-            explicit Lexer(const std::string& src);
+    // Lexer; converts source text into a list of tokens
+    class Lexer
+    {
+    public:
+        // Stores a reference to the source; the source must outlive the Lexer
+        explicit Lexer(const std::string &src);
 
-            // 扫描全部词法单元, 末尾追加 Tok::End
-            // 遇到非法字符或未闭合字符串时抛出
-            std::vector<Token> tokenize();
+        // Scans all tokens, appending Tok::End at the end
+        // Throws on illegal characters or unterminated strings
+        std::vector<Token> tokenize();
 
-        private:
-            // 跳过空白和 # 行注释
-            void skipSpace();
+    private:
+        // Skips whitespace and # line comments
+        void skipSpace();
 
-            // 是否为标识符首字符, 含 &
-            static bool isIdentStart(char c);
+        // Returns true if c can start an identifier, including &
+        static bool isIdentStart(char c);
 
-            // 是否为标识符后续字符
-            static bool isIdentChar(char c);
+        // Returns true if c can continue an identifier
+        static bool isIdentChar(char c);
 
-            // 读取双引号原始字符串, 遇到 " 结束, 无转义
-            Token readStringRaw();
+        // Reads a double-quoted raw string; ends at ", no escapes
+        Token readStringRaw();
 
-            // 读取单引号转义字符串, 遇到 ' 结束, 可转义
-            Token readStringEsc();
+        // Reads a single-quoted escaped string; ends at ', may contain escapes
+        Token readStringEsc();
 
-            // 读取数字, 支持可选负号和小数点
-            Token readNumber();
+        // Reads a number; supports an optional minus sign and decimal point
+        Token readNumber();
 
-            // 读取标识符, 并把关键字映射成专用类型
-            Token readIdent();
+        // Reads an identifier and maps keywords to dedicated token types
+        Token readIdent();
 
-            const std::string& src_;
-            size_t pos_ = 0;
-            int line_ = 1;
-        };
+        const std::string &src_;
+        size_t pos_ = 0;
+        int line_ = 1;
+    };
 
-        // 语法分析器, 把词法单元列表转换成 AST
-        class Parser {
-        public:
-            // 接收词法单元列表
-            explicit Parser(std::vector<Token> toks);
+    // Parser; converts a token list into an AST
+    class Parser
+    {
+    public:
+        // Receives the token list
+        explicit Parser(std::vector<Token> toks);
 
-            // 解析全部顶层声明
-            Stu parseTopLevel();
+        // Parses all top-level declarations
+        Stu parseTopLevel();
 
-        private:
-            // 查看当前词法单元, 不消费
-            const Token& peek() const;
+    private:
+        // Peeks at the current token without consuming it
+        const Token &peek() const;
 
-            // 消费并返回当前词法单元
-            const Token& next();
+        // Consumes and returns the current token
+        const Token &next();
 
-            // 当前词法单元是否为指定类型
-            bool check(Tok t) const;
+        // Returns true if the current token is of the given type
+        bool check(Tok t) const;
 
-            // 当前词法单元必须为指定类型, 否则抛出
-            const Token& expect(Tok t, const std::string& msg);
+        // Requires the current token to be of the given type, otherwise throws
+        const Token &expect(Tok t, const std::string &msg);
 
-            // 解析一条顶层声明
-            StuMember parseTopDecl();
+        // Parses one top-level declaration
+        StuMember parseTopDecl();
 
-            // 解析一批无 tag 的声明
-            void parseBatchDecl(Stu& out);
+        // Parses a batch of declarations without a tag
+        void parseBatchDecl(Stu &out);
 
-            // 解析 stu 主体
-            ValuePtr parseStuBody();
+        // Parses a stu body
+        ValuePtr parseStuBody();
 
-            // 解析 stu 中的一个成员
-            StuMember parseMember();
+        // Parses one member inside a stu
+        StuMember parseMember();
 
-            // 解析 vec 主体, 含 ~ 范围展开
-            ValuePtr parseVecBody();
+        // Parses a vec body, including ~ range expansion
+        ValuePtr parseVecBody();
 
-            // 解析 vec 中的一个元素
-            ValuePtr parseVecElement();
+        // Parses one element inside a vec
+        ValuePtr parseVecElement();
 
-            // 解析标量值, 含 & 宏引用
-            ValuePtr parseVarValue();
+        // Parses a scalar value, including & macro references
+        ValuePtr parseVarValue();
 
-            // 模板补齐（vec 里的紧凑 stu）
-            ValuePtr parseCompactStu(const Stu& header);
+        // Template completion (compact stu inside a vec)
+        ValuePtr parseCompactStu(const Stu &header);
 
-            std::vector<Token> toks_;
-            size_t pos_ = 0;
+        std::vector<Token> toks_;
+        size_t pos_ = 0;
 
-            // 宏表, 记录 & 开头的声明
-            std::unordered_map<std::string, ValuePtr> macros_;
-        };
+        // Macro table; records declarations whose names start with &
+        std::unordered_map<std::string, ValuePtr> macros_;
+    };
 
-        // 解析 mini_gms 源码, 返回顶层声明列表
-        Stu parse(const std::string& src);
+    // Parses mini_gms source text and returns the list of top-level declarations
+    Stu parse(const std::string &src);
 
 }
