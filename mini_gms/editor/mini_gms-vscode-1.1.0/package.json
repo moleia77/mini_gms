@@ -1,0 +1,27 @@
+{
+  "name": "mini-gms",
+  "displayName": "mini_gms",
+  "description": "Syntax highlighting for mini_gms configuration files",
+  "version": "1.1.0",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "mini_gms",
+        "aliases": ["mini_gms", "mgms"],
+        "extensions": [".mgms"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mini_gms",
+        "scopeName": "source.mgms",
+        "path": "./syntaxes/mini_gms.tmLanguage.json"
+      }
+    ]
+  }
+}

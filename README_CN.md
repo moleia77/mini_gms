@@ -2,65 +2,130 @@
 
 # mini_gms
 
-一种轻量、解析友好的配置语言
+一种轻量、解析友好的数据配置语言。
 
-mini_gms 是在开发 **GMS** 的过程中拆分出的数据配置子集，承担类似于 JSON 的职责
+mini_gms 是在开发 **GMS**（面向游戏引擎的 DSL）的过程中拆分出的数据配置子集。它承担类似于 JSON 的职责，但面向的是「由机器生成、由机器解析远多于由人阅读」的数据：它删掉了所有解析器能推断的东西，并补上了大型配置真正需要的构件——复用、序列和紧凑的表格行。游戏数据是最初的动机；语言本身是通用的。
 
-![version](https://img.shields.io/badge/version-1.0.0-blue)
+![version](https://img.shields.io/badge/version-1.1.0-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
-![language](https://img.shields.io/badge/C%2B%2B-17-blue)
+![language](https://img.shields.io/badge/language-C%2B%2B17-blue)
 
 ---
 
 ## 目录
 
 - [关于](#关于)
-- [语法](#语法)
+  - [mini_gms 是什么](#mini_gms-是什么)
+  - [mini_gms 不是什么](#mini_gms-不是什么)
+  - [特性总览](#特性总览)
+  - [示例](#示例)
+- [快速开始](#快速开始)
+- [语法教程](#语法教程)
+  - [1. 三种数据类型](#1-三种数据类型)
+  - [2. 顶层声明必须带标签](#2-顶层声明必须带标签)
+  - [3. 内层声明可省标签](#3-内层声明可省标签)
+  - [4. 分隔与注释](#4-分隔与注释)
+  - [5. 标量](#5-标量)
+  - [6. 字符串：原始与转义](#6-字符串原始与转义)
+  - [7. 嵌套](#7-嵌套)
+  - [8. 用宏复用](#8-用宏复用)
+  - [9. 范围展开](#9-范围展开)
+  - [10. 批量声明](#10-批量声明)
+  - [11. 紧凑 stu 行（模板继承）](#11-紧凑-stu-行模板继承)
+  - [12. 综合示例](#12-综合示例)
 - [各语言接口](#各语言接口)
+  - [C++](#c)
+  - [Python](#python)
+  - [C ABI](#c-abi)
 - [构建](#构建)
 - [设计说明](#设计说明)
-- [贡献](#贡献)
+- [兼容性](#兼容性)
 - [许可证](#许可证)
 
 ---
 
 ## 关于
 
-mini_gms 是一种配置语言，有三种数据类型、极少的符号、顶层带标签
+### mini_gms 是什么
 
-- **三种数据**：`[stu]`(结构体)、`[vec]`(数组)、`[var]`(标量)
-- **符号极少**：无逗号、无分号、键裸写
-- **顶层带标签**：`[stu] name { ... }`，入口同时携带类型和名字
-- **注释**：`#` 行注释
-- **多语言**：C++ 原生、C ABI、Python 绑定
+一种配置语言，只有三种数据类型、极少的符号，以及少量但有力的复用与压缩构件。
 
-mini_gms 源文件通常保存为 `.mgms` 扩展名，例如 `config.mgms`
+- **三种数据**：`stu`（结构体）、`vec`（数组）、`var`（标量）。
+- **符号极少**：无逗号、无分号、键裸写。
+- **顶层带标签**：`[stu] name { ... }`——入口同时携带类型和名字。
+- **复用**：`&name` 宏和 `start~end` 范围。
+- **压缩**：批量声明和紧凑 `stu` 行。
+- **多语言**：原生 C++、稳定的 C ABI、Python 绑定。
 
-### 关于 GMS
+源文件使用 `.mgms` 扩展名，例如 `game.mgms`。
 
-GMS (Game Markup Script) 是一个面向游戏引擎的 DSL 脚本，目前仍在开发中，尚未发布
-mini_gms 是它的数据配置子集，被拆分出来以便单独使用
+### mini_gms 不是什么
+
+- 不是面向人工编辑、跨系统交换的 JSON 替代品。JSON 优化的是「读一次就懂」；mini_gms 优化的是数据密度和机器生成。
+- 不是编程语言。没有表达式、没有控制流、没有函数。值只有字面量、宏和范围三种来源。
+- 不携带 schema。`stu` / `vec` / `var` 由形式推断，不需要声明。
+
+除了三种数据类型之外，读者只需要再记住一条规则：`&name` 是一个整体标识符，有两种角色——出现在声明位置时登记一个值，出现在值位置时替换为该值。编辑器语法高亮会让这一点可见；语言的其余部分是纯形式驱动的。
+
+### 特性总览
+
+| 特性 | 起始版本 | 例子 |
+|---|---|---|
+| 三种数据类型 `stu` / `vec` / `var` | 1.0 | `[stu] a { b : 1 }` |
+| 顶层带标签 | 1.0 | `[vec] n : { 1 2 3 }` |
+| 内层省标签 | 1.0 | `stu` 内的 `b { c : 1 }` |
+| `#` 行注释 | 1.0 | `width : 1280  # px` |
+| 双引号原始字符串 | 1.0 | `"C:\path"` |
+| 单引号转义字符串 | 1.1 | `'line1\nline2'` |
+| 宏 `&name` | 1.1 | `[var] &base : 100`，然后 `x : &base` |
+| 范围展开 `start~end` | 1.1 | `{ 1~5 }` |
+| 批量声明 `[stu] { ... }` | 1.1 | `[stu] { a : 1  b : 2 }` |
+| 紧凑 `stu` 行 | 1.1 | 模板行之后的 `{ 1 2 }` |
+| 路径访问（`a.b[0].c`） | 1.0 | `doc.get<number>("a.b[0].c")` |
+| C++ / C ABI / Python 绑定 | 1.0 | 见[各语言接口](#各语言接口) |
 
 ### 示例
 
-```
-[stu] app {
-    name : "MyApp"
-    version : "1.0.0"
+一段小游戏配置。它不是真实的生产文件——它被刻意塞满，为的是展示语言的每一个特性。
 
-    window {
-        width : 1280
-        height : 720
-        resizable : true
+```
+# 一个宏：登记名字 &hero_defaults，后面会引用
+[stu] &hero_defaults { hp : 100  speed : 1.5 }
+
+# 一个批量声明：没有名字，成员类型由形式推断
+[stu] {
+    title   : "Starfall"                    # var（原始字符串）
+    tagline : 'a tiny\nspace adventure'     # var（转义字符串，可跨行）
+
+    screen {                                # stu（嵌套）
+        width  : 800
+        height : 600
     }
 
-    servers : {
-        { host : "alpha.example.com"  port : 8080 }
-        { host : "beta.example.com"   port : 8080 }
+    levels : { 1~5 }                        # vec（范围：1 2 3 4 5）
+
+    enemies : {                             # vec of stu
+        { name : "Slime"  hp : 20 }         # 模板行
+        { "Bat"   10 }                      # 紧凑行
+        { "Ghost" 30 }                      # 紧凑行
+    }
+
+    hero {                                  # stu，复用宏
+        stats : &hero_defaults              # 替换为上面登记的 stu
+        name  : "Nova"
     }
 }
 ```
+
+自上而下读：
+
+- `[stu] &hero_defaults { ... }`——一个宏声明。标签 `[stu]` 给出类型，`&hero_defaults` 是名字；在这里登记，后面被替换。
+- `[stu] { ... }`——批量声明。没有名字；每个成员的类型由形式推断（`: 值` → var，`{ ... }` → stu，`: { ... }` → vec）。
+- `tagline : '...'`——转义字符串。`\n` 变成换行，字符串可以跨行。
+- `levels : { 1~5 }`——范围。解析时展开为 `{ 1 2 3 4 5 }`。
+- `enemies : { ... }`——一个 `vec`，第一行是完整的 `stu` 模板；后续行是紧凑行，按模板补齐。
+- `stats : &hero_defaults`——宏引用。得到的是同一个节点，不是拷贝。
 
 C++：
 
@@ -69,9 +134,10 @@ C++：
 
 auto doc = mol::Document::parse(text);
 
-auto name = doc.get<mol::string>("app.name", "");            // "MyApp"
-auto w    = doc.get<mol::number>("app.window.width", 0.0);   // 1280
-auto host = doc.get<mol::string>("app.servers[0].host", ""); // "alpha.example.com"
+auto title  = doc.get<mol::string>("title", "");              // "Starfall"
+auto levels = doc.getVec("levels");                           // [1,2,3,4,5]
+auto hp     = doc.get<mol::number>("enemies[0].hp", 0.0);     // 20
+auto stats  = doc.node("hero.stats");                         // 共享的 stu
 ```
 
 Python：
@@ -80,69 +146,82 @@ Python：
 import mini_gms
 
 data = mini_gms.loads(text)
-print(data['app']['name'])               # MyApp
-print(data['app']['window']['width'])    # 1280.0
-print(data['app']['servers'][0]['host']) # alpha.example.com
+print(data['title'])              # Starfall
+print(data['levels'])             # [1.0, 2.0, 3.0, 4.0, 5.0]
+print(data['enemies'][0]['hp'])   # 20.0
+print(data['hero']['stats'])      # {'hp': 100.0, 'speed': 1.5}
 ```
 
 ---
 
-## 语法
+## 快速开始
 
-### 三种数据
-
-mini_gms 只有三种数据类型由两个符号决定：
-
-| 类型 | 标记 | 写法 |
-|---|---|---|
-| `stu` | `{}`，无冒号 | `[stu] name { ... }` |
-| `vec` | `:{}`，有冒号 | `[vec] name : { ... }` |
-| `var` | `:`，只有冒号 | `[var] name : value` |
-
-```
-name { ... }        → stu
-name : { ... }      → vec
-name : value        → var
-```
-
-- 有冒号无花括号 → `var`
-- 有冒号有花括号 → `vec`
-- 无冒号有花括号 → `stu`
-
-### 顶层必须带标签
-
-```
-[stu] config { ... }     ✅
-config { ... }           ❌
-```
-
-顶层没有外层作用域，解析器依赖标签判断类型即使文件只有一行，也必须带标签：
+一个最小的文件，然后在此基础上逐节叠加。
 
 ```
 [var] a : 10
 ```
 
-### 内层可省标签
+这就是一个完整的 mini_gms 文件：一条顶层标量声明。本文档后面的每一个特性，都是在这个基线上做加法。
 
-`stu` 内部可省标签，因为写法已经暗示了类型：
+---
+
+## 语法教程
+
+### 1. 三种数据类型
+
+mini_gms 只有三种数据类型，仅凭形式就能决定是哪一种：
+
+| 类型 | 标记 | 形式 | 含义 |
+|---|---|---|---|
+| `stu` | `{}`，无冒号 | `name { ... }` | 有序的命名成员列表 |
+| `vec` | `:{}`，有冒号 | `name : { ... }` | 有序的值列表 |
+| `var` | `:`，只有冒号 | `name : value` | 标量（null、bool、数字、字符串） |
+
+- 有冒号无花括号 → `var`
+- 有冒号有花括号 → `vec`
+- 无冒号有花括号 → `stu`
+
+`stu` 保留声明顺序，允许同名键；查找返回第一个匹配。这是刻意的：mini_gms 不在源文没有要求 map 语义的地方强加 map 语义。
+
+### 2. 顶层声明必须带标签
+
+顶层没有外层作用域，解析器需要标签才能知道类型：
+
+```
+[stu] config { ... }     ✅
+config { ... }           ❌  （顶层没有标签）
+```
+
+即使只有一行的文件也必须带标签：
+
+```
+[var] a : 10
+```
+
+标签同时也是声明名字所在的位置：`[stu] name { ... }` 读作「一个名为 name 的 stu」，而不是「一个标签后面跟一个名字」。
+
+### 3. 内层声明可省标签
+
+在 `stu` 内部，形式已经暗示了类型，标签可以省略：
 
 ```
 [stu] config {
-    name : "test"          # var
-    window { ... }         # stu
-    nums : { 1 2 3 }       # vec
+    name   : "test"      # var
+    window { ... }       # stu
+    nums   : { 1 2 3 }   # vec
 }
 ```
 
-### 分隔
+同样是三种形式，只有 `[tag]` 前缀是可选的。
 
-无逗号、无分号元素之间靠空白(空格、换行、制表)分隔
+### 4. 分隔与注释
+
+没有逗号，也没有分号。元素之间靠空白分隔：空格、制表、换行。下面两段等价：
 
 ```
 [vec] numbers : { 1 2 3 }
 ```
-
-等价于：
 
 ```
 [vec] numbers : {
@@ -152,20 +231,48 @@ config { ... }           ❌
 }
 ```
 
-### 标量类型
+`#` 开始一条行注释，一直到行尾。可以单独占一行，也可以跟在任意 token 之后。字符串内的 `#` 不是注释。
 
-| 类型 | 写法 | 例子 |
+```
+# 整行注释
+[stu] config {
+    width : 1280    # 行尾注释
+    color : "#FF0000"   # 这个 # 是字符串的一部分
+}
+```
+
+### 5. 标量
+
+| 类型 | 形式 | 例子 |
 |---|---|---|
-| 字符串 | 双引号 | `"hello"` |
-| 数字 | 整数或浮点 | `100`、`-5`、`7.5` |
+| null | 关键字 | `null` |
 | 布尔 | 关键字 | `true`、`false` |
-| 空值 | 关键字 | `null` |
+| 数字 | 可选 `-`、数字、可选 `.` | `100`、`-5`、`7.5` |
+| 字符串 | 双引号或单引号 | `"hello"`、`'line\n'` |
 
-整数和浮点统一为 `double`
+整数和浮点统一存为 `double`，没有单独的整数类型。
 
-### 嵌套
+### 6. 字符串：原始与转义
 
-**stu 套 stu**：
+两种字符串形式，转义规则不同：
+
+- `"..."`：原始字符串。不处理转义，`\n` 就是反斜杠加 `n`。**不能跨行。**
+- `'...'`：转义字符串。处理 `\n`、`\t`、`\r`、`\'`、`\\`。**可以跨多行。**
+
+```
+[var] win_path : "C:\Users\test"    # 原始：反斜杠是字面量
+[var] msg      : 'line1\nline2'     # 转义：\n 变成换行
+[var] multi    : 'first
+second'                             # 转义字符串可以跨行
+```
+
+Windows 路径、正则、任何反斜杠有意义的内容用原始形式。想要 `\n`、`\t` 或多行文本又不想拼接，用转义形式。
+
+### 7. 嵌套
+
+三种类型自由嵌套。
+
+**stu 套 stu：**
 
 ```
 [stu] game {
@@ -179,13 +286,13 @@ config { ... }           ❌
 }
 ```
 
-**vec 放标量**：
+**vec 放标量：**
 
 ```
 [vec] numbers : { 1 2 3 4 5 }
 ```
 
-**vec 放匿名 stu**：
+**vec 放匿名 stu：**
 
 ```
 [vec] cards : {
@@ -194,7 +301,7 @@ config { ... }           ❌
 }
 ```
 
-**vec 放匿名子数组**(多维数组)：
+**vec 放匿名子 vec**（多维数组）：
 
 ```
 [vec] matrix : {
@@ -204,145 +311,164 @@ config { ... }           ❌
 }
 ```
 
-### 注释
+`: { ... }` 是匿名子 `vec`，只作为 `vec` 元素出现；其他位置的 `:` 后面总是跟成员名。
 
-`#` 行注释，可放任意位置：
+### 8. 用宏复用
+
+`&name` 是一个整体标识符：开头的 `&` 是名字的一部分，不是运算符，不引入任何新规则。**宏声明就是普通声明，只是名字以 `&` 开头**；标签规则照旧——顶层必须带 `[tag]`，`stu` 内部可省。
+
+同一个名字有两种角色，由出现位置决定：
+
+- **声明位置**：登记这个值。顶层写作 `[tag] &name ...`，`stu` 内部写作 `&name ...`。
+- **值位置**：`:` 的右边，或 `vec` 内的元素位置。取出已登记的值进行替换。
+
+顶层：
 
 ```
-# 整行注释
+[var] &base_hp : 100              # 声明：登记 &base_hp
+[var] player_hp : &base_hp        # 值位置：替换为 100
+```
+
+在 `stu` 内部（标签可省，和普通成员一致）：
+
+```
 [stu] config {
-    width : 1280    # 行尾注释
-    height : 720
+    &base { hp : 100  speed : 1.0 }
+
+    [stu] enemy {
+        stats : &base           # 替换为上面登记的 stu
+        copy  : &base           # 同一个节点，不是拷贝
+    }
+}
+```
+
+规则：
+
+- 引用得到的是**同一个节点**，不是拷贝。如果将来加入可变操作，改一处会处处可见。
+- 宏必须先定义后引用。前向引用会抛 `undefined macro`。
+- 同名重定义会覆盖前一个定义。
+- 宏可以引用其他宏，只要各自在被引用前已定义。自引用（`&a { x : &a }`）在使用点上尚未定义，因此同样抛 `undefined macro`。
+
+### 9. 范围展开
+
+在 `vec` 内，`start~end` 展开为从 `start` 到 `end`（含端点）的每个整数。`start <= end` 时步长为 `+1`，否则为 `-1`。
+
+```
+[vec] up   : { 1~5 }      # 1 2 3 4 5
+[vec] down : { 5~1 }      # 5 4 3 2 1
+[vec] neg  : { -3~3 }     # -3 -2 -1 0 1 2 3
+[vec] same : { 3~3 }      # 3
+```
+
+范围展开只发生在 `vec` 内。`~` 在其他位置没有意义，会报语法错误。
+
+### 10. 批量声明
+
+不带名字的 `[stu] { ... }` 块一次声明多个成员。每个成员的类型按形式推断，规则与 `stu` 内部相同。
+
+```
+[stu] {
+    a : 1          # var
+    b { c : 2 }    # stu
+    d : { 1 2 3 }  # vec
 }
 ```
 
-字符串内的 `#` 不是注释：
+这完全等价于写：
 
 ```
-color : "#FF0000"    # 这才是注释
+[var] a : 1
+[stu] b { c : 2 }
+[vec] d : { 1 2 3 }
 ```
 
-### 完整示例
+批量块可以出现在顶层，也可以出现在 `stu` 内部。只有 `[stu]` 可以作为批量标签；`[vec] { ... }` 和 `[var] { ... }` 会报错，因为无法从多个值里推断出一个批量 `var` 应该产生什么。
+
+### 11. 紧凑 stu 行（模板继承）
+
+在 `vec` 内，第一个完整的 `stu` 成为模板。后续以标量开头的行按模板顺序补齐。
 
 ```
-# 应用配置
-[stu] config {
-    title : "MyApp"
-    version : "1.0.0"
-    debug : true
-
-    window {
-        width : 1280
-        height : 720
-        fullscreen : false
-    }
-
-    paths {
-        audio : "res/audio/"
-        image : "res/img/"
-    }
+[vec] enemies : {
+    { name : "Slime"  hp : 20 }   # 模板
+    { "Bat"   10 }                # { name : "Bat"    hp : 10 }
+    { "Ghost" 30 }                # { name : "Ghost"  hp : 30 }
 }
+```
 
-[stu] entities {
+规则：
+
+- 值的数量必须与模板严格相等。
+- 每个值必须是标量（数字、字符串、布尔、null）。紧凑行内不允许嵌套 `{}` 和 `:`。
+- 在任何模板出现之前使用紧凑行会报错：没有东西可以补齐。
+- 模板是该 `vec` 内第一个完整的 `stu`。如果需要别的顺序，先声明模板。
+
+这是大型配置最需要的构件：一千个同构实体，写成一千行短行，而不是一千遍重复键名。
+
+### 12. 综合示例
+
+```
+# 一个共享的"属性"宏，被玩家和敌人同时引用
+[stu] &attributes { str : 10  dex : 8  int : 6 }
+
+# 一个共享的"背包槽位"宏，被多处复用
+[vec] &empty_slots : { null  null  null  null }
+
+[stu] save {
     player {
-        name : "Alice"
-        hp : 100
-        attack {
-            damage : 20
-            interval : 1.4
-        }
+        attributes : &attributes        # 引用共享 stu
+        inventory  : &empty_slots       # 引用共享 vec
+        name       : "Nova"
     }
-    dummy {
-        name : "Training Dummy"
-        hp : 9999
-        attack : null
+
+    # 批量声明嵌套在 stu 内部：没有名字，成员类型由形式推断
+    [stu] {
+        gold    : 1200
+        chapter : "prologue"
+        checked : 'the gate\nis open'   # 转义字符串，跨行
+    }
+
+    # 一个 vec，第一行是模板，后续是紧凑行
+    party : {
+        { name : "Nova"   level : 1  hp : 30 }
+        { "Iris"   2  25 }
+        { "Kael"   3  40 }
+    }
+
+    # 嵌套 vec：每一章是一串任务编号
+    quests : {
+        : { 1~3 }       # 第 1 章：1 2 3
+        : { 4~6 }       # 第 2 章：4 5 6
     }
 }
-
-[vec] numbers : { 1 2 3 4 5 }
-
-[vec] cards : {
-    { id : 1  name : "first"   cost : 100 }
-    { id : 2  name : "second"  cost : 50 }
-}
-
-[var] screenWidth : 1280
-[var] appTitle : "MyApp"
-[var] nothing : null
 ```
 
----
+这段文件里：
 
-## 各语言接口
+- `&attributes` 和 `&empty_slots` 是**两个不同类型的宏**——一个 `stu`、一个 `vec`，说明宏不限于某一种类型。
+- `player.attributes` 和 `player.inventory` 是**值位置的宏引用**；前者替换为一个 `stu`，后者替换为一个 `vec`。
+- `[stu] { ... }` 是**嵌套在 `stu` 内部的批量声明**，展开成 `gold`、`chapter`、`checked` 三个成员。
+- `party` 的紧凑行说明模板继承不限于顶层 `vec`，任何 `vec` 都可以。
+- `quests` 是**嵌套 vec + 范围展开**的组合：外层 `vec` 的每个元素是一个子 `vec`，子 `vec` 里是 `1~3` 这样的范围。
 
-### C++
+C++ 读取：
 
 ```cpp
-#include "mini_gms.hpp"
+auto doc = mol::Document::parse(text);
 
-using namespace mol;
-
-// 解析
-auto doc = Document::parse(text);
-
-// 按路径取标量
-auto name = doc.get<string>("config.title", "");
-auto w    = doc.get<number>("config.window.width", 0.0);
-auto dbg  = doc.get<boolean>("config.debug", false);
-
-// 数组索引
-auto first = doc.get<number>("config.nums[0]", 0.0);
-
-// 一定有值(缺失或类型不匹配抛异常)
-auto required = doc.require<number>("config.window.width");
-
-// 判断存在
-if (doc.has("config.title")) { ... }
-
-// 取节点自己遍历
-auto nums = doc.node("config.nums");
-if (nums && nums->isVec()) {
-    for (auto& e : nums->asVec()) { ... }
-}
+auto str  = doc.get<mol::number>("save.player.attributes.str", 0.0); // 10
+auto gold = doc.get<mol::number>("save.gold", 0.0);                  // 1200
+auto q    = doc.get<mol::number>("save.quests[0][1]", 0.0);          // 2
 ```
 
-路径语法：
-
-| 路径 | 含义 |
-|---|---|
-| `config.title` | 顶层 `config` 的 `title` |
-| `config.nums[0]` | `nums` 的第 0 个元素 |
-| `config.players[2].name` | 第 2 个玩家的 `name` |
-
-类型别名：
-
-```cpp
-mol::null      // std::monostate
-mol::boolean   // bool
-mol::number    // double
-mol::string    // std::string
-```
-
-### Python
-
-```bash
-cd python
-pip install .
-```
+Python 读取：
 
 ```python
-import mini_gms
-
-# 解析成 dict
 data = mini_gms.loads(text)
-print(data['config']['title'])          # MyApp
-print(data['config']['window']['width']) # 1280.0
-
-# 保留 Document 按需访问
-with mini_gms.parse(text) as doc:
-    cfg = doc['config']
-    print(cfg['title'].value)           # MyApp
-    print(cfg.keys())                   # ['title', 'version', 'debug', ...]
+print(data['save']['player']['attributes'])  # {'str': 10.0, 'dex': 8.0, 'int': 6.0}
+print(data['save']['gold'])                  # 1200.0
+print(data['save']['party'][1]['name'])      # Iris
+print(data['save']['quests'][0])             # [1.0, 2.0, 3.0]
 ```
 
 类型映射：
@@ -358,7 +484,7 @@ with mini_gms.parse(text) as doc:
 
 ### C ABI
 
-任何支持 C FFI 的语言都能调用动态库
+任何支持 C FFI 的语言都能调用动态库。
 
 ```c
 #include "mini_gms_c.h"
@@ -376,65 +502,44 @@ for (size_t i = 0; i < n; ++i) {
 mgms_free(doc);
 ```
 
-完整函数列表见 `include/mini_gms_c.h`
+完整函数列表见 `include/mini_gms_c.h`。
 
 ---
 
 ## 构建
 
-见 [BUILD.md](mini_gms/BUILD.md)
+见 [BUILD.md](BUILD.md)。
 
 ---
 
 ## 设计说明
 
-### 为什么顶层必须带标签
+**为什么顶层必须带标签。** 解析器需要确定性的入口。JSON 顶层用 `{}`，但 `{}` 不携带类型信息。mini_gms 把类型和名字放在同一个位置：`[stu] name`。内层声明可以省标签，因为外层作用域已经确定了类型。
 
-解析器需要确定性的入口,JSON 顶层用 `{}` 当入口，但 `{}` 不携带类型信息mini_gms 用 `[stu] name`——同一个位置同时给出类型和名字
+**为什么可以省逗号、引号。** 空白分隔元素；键裸写；顶层标签携带类型。凡是解析器能推断的，语法里不写。这是刻意的取舍：写和解析都少打字，代价是读的人要记住推断规则。
 
-内层可省标签，是因为外层作用域已经确定了类型进了 `stu`，靠 `{}` / `:{}` / `:` 的写法就够
+**为什么宏定义与引用共用一套 `&name`。** `&` 只是名字的首字符，不引入任何新规则。宏声明就是普通声明，只是名字以 `&` 开头；标签规则、位置语义、查表行为，全部和普通声明一致。另一种做法是用两个符号——像 YAML 的 `&` 定义、`*` 引用——我们考虑过并放弃了。它会为一个一条规则就够的特性再加一个概念：`&name` 是名字；位置决定它做什么。语法高亮让两种角色可见，不需要第二个符号。
 
-### 为什么可以省逗号、引号
+**为什么有批量声明和紧凑行。** 大型配置里有大量同构实体。写一万遍 `name : ..., hp : ...` 既浪费文件体积，也浪费人的注意力。批量声明去掉重复的 `[var]` / `[stu]` 标签；紧凑行去掉重复的键名。两者都是可选的：文件写全更清楚时，全写形式一直都在。
 
-- **无逗号**：空白能分隔元素
-- **键裸写**：解析器能靠位置定位键边界
-- **顶层带标签**：入口自带类型
+**为什么 `stu` 保序、允许同名键。** 源文本来就是有序的，模型如实反映。如果将来的特性需要 map 语义，可以在上面构建；模型不提前强加。
 
-**凡是解析器能推断的，语法里不写**
-
-### 和 JSON 对比
-
-| | JSON | mini_gms |
-|---|---|---|
-| 顶层 | `{ ... }`(匿名容器) | `[stu] name { ... }`(类型 + 名字) |
-| 键 | 必须引号 | 裸写 |
-| 分隔 | 逗号 | 空白 |
-| 注释 | 不支持 | `#` 行注释 |
-| 顶层单值 | 必须包 `{}` | `[var] a : 10` 一行 |
-
-mini_gms 的语法来自 GMS，不是为对标 JSON 设计的
+**为什么数字是 `double`。** 一种数值类型让值模型保持小、让 C ABI 保持简单。配置很少需要整数/浮点区分；需要时由使用方转换。
 
 ---
 
-## 贡献
+## 兼容性
 
-开源项目是协作与慷慨的图景请通过下面的链接提出讨论、提交 PR，或邮件联系
+mini_gms 1.1 与 1.0 完全向后兼容：
 
-[请求新功能][feature-request-url]<br>
-[报告 Bug][bug-report-url]
+- 1.0 的 `.mgms` 文件仍然合法，语义不变。
+- C++ API（`mol::Document`、`mol::parse`）、C ABI（`mgms_*`）、Python API（`parse`、`loads`、`Document`、`Value`）均不变。
+- 无需迁移。
+
+1.1 新增了语法（宏、范围、转义字符串、批量声明、紧凑行），但不改变、不删除任何 1.0 构件。完整列表见 [CHANGELOG_CN.md](CHANGELOG_CN.md)。
 
 ---
 
 ## 许可证
 
-[![License][license-shield]][license-url]
-
-MIT 许可证见 [LICENSE.txt](LICENSE.txt)
-
----
-
-[feature-request-url]: https://github.com/moleia77/mini_gms/issues/new?labels=enhancement&template=feature-request.md
-[bug-report-url]: https://github.com/moleia77/mini_gms/issues/new?labels=bug&template=bug-report.md
-
-[license-shield]: https://img.shields.io/github/license/moleia77/mini_gms.svg?style=for-the-badge
-[license-url]: https://github.com/moleia77/mini_gms/blob/main/LICENSE.txt
+MIT 许可证见 [LICENSE.txt](LICENSE.txt)。

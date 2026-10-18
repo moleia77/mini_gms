@@ -1,9 +1,10 @@
 # pyproject.toml - packaging metadata for the mini_gms Python package.
 #
 # The package is a thin ctypes wrapper around the mini_gms shared library.
-# The shared library itself is produced by the CMake build at the repository
-# root and must be placed next to this package's source files before
-# `pip install .` so that it can be bundled into the wheel.
+# The shared library is not committed to the repository: it is produced by
+# the CMake build under build/lib/ and must be copied next to this package's
+# source files (python/mini_gms/) before `pip install .` so that it can be
+# bundled into the wheel. See BUILD.md for the exact steps.
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
@@ -11,9 +12,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mini_gms"
-version = "1.0.0"
+version = "1.1.0"
 description = "mini_gms parser for Python"
-readme = "README.md"
+readme = { file = "../README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
 license = { text = "MIT" }
 dependencies = []

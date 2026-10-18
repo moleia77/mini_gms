@@ -1,0 +1,126 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "mini_gms",
+  "scopeName": "source.mgms",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#tags"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#macros"
+    },
+    {
+      "include": "#ranges"
+    },
+    {
+      "include": "#identifiers"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.mgms",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "tags": {
+      "patterns": [
+        {
+          "name": "keyword.control.tag.mgms",
+          "match": "\\[(stu|vec|var)\\]"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mgms",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mgms",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.mgms",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mgms",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.mgms",
+          "match": "-?\\d+(\\.\\d+)?"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "constant.language.mgms",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    },
+    "macros": {
+      "patterns": [
+        {
+          "name": "entity.name.macro.mgms",
+          "match": "&[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "ranges": {
+      "patterns": [
+        {
+          "name": "keyword.operator.range.mgms",
+          "match": "~"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.mgms",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.mgms",
+          "match": "[:\\{\\}\\[\\]]"
+        }
+      ]
+    }
+  }
+}

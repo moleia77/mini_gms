@@ -11,6 +11,7 @@
 
 #include "mini_gms_c.h"
 #include "mini_gms.hpp"
+#include "mini_gms_parser.hpp"
 
 #include <cstring>
 #include <string>
@@ -60,7 +61,7 @@ extern "C"
         try
         {
             auto *doc = new mgms_doc();
-            doc->decls = mol::parse(std::string(src, len));
+            doc->decls = mol::mgms::parse(std::string(src, len));
             return doc;
         }
         catch (const std::exception &e)
